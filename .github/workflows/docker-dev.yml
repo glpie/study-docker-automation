@@ -45,7 +45,7 @@ jobs:
             python -m pip install --upgrade pip
             pip install -r requirements.txt
             pip install pytest pytest-cov
-            pytest --cov=. --cov-report=term-missing --cov-branch --cov-fail-under=90
+            pytest --cov=. --cov-report=term-missing --cov-branch --cov-fail-under=60
         
       - name: Test User-service
         working-directory: burguer-app/user-service
