@@ -1,0 +1,70 @@
+name: Docker Dev Workflow
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
+      - name: Create .env for all files
+        working-directory: burguer-app
+        run: |
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" > user-service/.env
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" > order-service/.env
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" > product-service/.env
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" > auth-service/.env
+
+      - name: Build and run Docker containers
+        working-directory: burguer-app
+        run: |
+          docker-compose -f docker-compose.yml -f docker-compose.override.yml down
+          docker-compose -f docker-compose.yml -f docker-compose.override.yml up -d --build
+
+      - name: Waiting for mongo to be ready
+        run: |
+          sleep 20
+
+      - name: Test auth-service
+        working-directory: burguer-app/auth-service
+        run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install pytest pytest-cov
+            pytest --cov=. --cov-report=term-missing --cov-branch --cov-fail-under=60
+        
+      - name: Test User-service
+        working-directory: burguer-app/user-service
+        run: |
+            pip install -r requirements.txt
+            pytest -v
+    
+      - name: Test order-service
+        working-directory: burguer-app/order-service
+        run: |
+            pip install -r requirements.txt
+            pytest -v
+
+      - name: Test product-service
+        working-directory: burguer-app/product-service
+        run: |
+            pip install -r requirements.txt
+            pytest -v
+
+      - name: Shut down Docker containers
+        working-directory: burguer-app
+        run: docker-compose down
